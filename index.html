@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>气垫导轨碰撞实验 · AI 仿真助教</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --surface:#ffffff; --line:#e3e8ef; --line2:#cdd5e0;
+    --ink:#1f2a37; --ink2:#5b6675; --ink3:#8a94a6;
+    --brand:#185fa5; --brand2:#e6f1fb; --teal:#0f6e56; --teal2:#e1f5ee;
+    --amber:#854f0b; --amber2:#faeeda; --coral:#993c1d; --coral2:#faece7;
+    --ok:#1d9e75; --warn:#ba7517; --bad:#a32d2d;
+    --radius:12px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.6}
+  .app{max-width:1180px;margin:0 auto;padding:20px}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+  header h1{font-size:18px;font-weight:600;margin:0}
+  header .sub{color:var(--ink2);font-size:13px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;
+    background:var(--brand2);color:var(--brand);font-weight:500}
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:16px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px}
+  .card h2{font-size:14px;font-weight:600;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  .card h2 .dot{width:8px;height:8px;border-radius:2px;background:var(--brand)}
+  canvas{width:100%;height:300px;display:block;background:#fbfcfe;border:1px solid var(--line);border-radius:8px}
+  .ctrl{margin-bottom:12px}
+  .ctrl label{display:flex;justify-content:space-between;font-size:12px;color:var(--ink2);margin-bottom:4px}
+  .ctrl label b{color:var(--ink);font-family:var(--mono)}
+  input[type=range]{width:100%;accent-color:var(--brand)}
+  .seg{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:3px}
+  .seg button{flex:1;border:0;background:transparent;padding:6px 4px;border-radius:6px;
+    font-size:12px;color:var(--ink2);cursor:pointer;font-family:inherit}
+  .seg button.on{background:var(--surface);color:var(--brand);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .btns{display:flex;gap:8px;margin-top:6px}
+  .btns button{flex:1;padding:9px;border:1px solid var(--line2);background:var(--surface);
+    border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--ink)}
+  .btns button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .btns button.primary:hover{background:#0c447c}
+  .btns button:disabled{opacity:.5;cursor:not-allowed}
+  .readout{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .readout .it{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px}
+  .readout .it .k{font-size:11px;color:var(--ink3)}
+  .readout .it .v{font-size:15px;font-weight:600;font-family:var(--mono);color:var(--ink)}
+  .readout .it .v.ok{color:var(--ok)} .readout .it .v.bad{color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+  th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);font-family:var(--mono)}
+  th:first-child,td:first-child{text-align:center}
+  th{color:var(--ink2);font-weight:500;font-family:inherit}
+  th.note,td.note{text-align:left;font-family:inherit;color:var(--ink2)}
+  .empty{color:var(--ink3);text-align:center;padding:14px;font-size:12px}
+  .ai{margin-top:16px}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px}
+  .tabs button{border:0;background:transparent;padding:8px 14px;font-size:13px;color:var(--ink2);
+    cursor:pointer;font-family:inherit;border-bottom:2px solid transparent}
+  .tabs button.on{color:var(--brand);border-bottom-color:var(--brand);font-weight:600}
+  .panel{display:none} .panel.on{display:block}
+  .log{height:200px;overflow-y:auto;background:var(--bg);border:1px solid var(--line);
+    border-radius:8px;padding:10px;font-size:13px}
+  .log .m{margin-bottom:8px;padding-left:10px;border-left:2px solid var(--brand2)}
+  .log .m .who{font-size:11px;color:var(--ink3);margin-bottom:2px}
+  .log .m.ai{border-left-color:var(--amber)}
+  .log .m.sys{border-left-color:var(--line2);color:var(--ink2);font-size:12px}
+  .chat{height:200px;overflow-y:auto;background:var(--bg);border:1px solid var(--line);
+    border-radius:8px;padding:10px}
+  .chat .b{margin-bottom:10px;max-width:88%}
+  .chat .b.ai{color:var(--ink)}
+  .chat .b.me{margin-left:auto;text-align:right}
+  .chat .b .who{font-size:11px;color:var(--ink3);margin-bottom:2px}
+  .chat .b .txt{background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:8px 10px;display:inline-block;text-align:left}
+  .chat .b.me .txt{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .inbox{display:flex;gap:8px;margin-top:8px}
+  .inbox input{flex:1;padding:9px 10px;border:1px solid var(--line2);border-radius:8px;
+    font-size:13px;font-family:inherit}
+  .inbox button{padding:9px 16px;background:var(--brand);color:#fff;border:0;border-radius:8px;
+    cursor:pointer;font-size:13px;font-family:inherit}
+  .score{font-size:12px;color:var(--ink2);margin-top:8px}
+  .score b{color:var(--ok);font-family:var(--mono)}
+  .diag{font-size:13px}
+  .diag .h{font-weight:600;margin:8px 0 4px;color:var(--ink)}
+  .diag .li{margin:4px 0;padding-left:14px;position:relative;color:var(--ink2)}
+  .diag .li:before{content:"";position:absolute;left:0;top:9px;width:6px;height:6px;
+    border-radius:50%;background:var(--amber)}
+  .diag .big{font-family:var(--mono);font-size:18px;color:var(--coral);font-weight:600}
+  .hint{font-size:11px;color:var(--ink3);margin-top:6px}
+  .qcard{background:var(--amber2);border:1px solid #f0d9a8;border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px}
+  .qcard .q{color:var(--amber);font-weight:600;margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>气垫导轨碰撞实验</h1>
+    <span class="tag">大学物理 · 动量守恒</span>
+    <span class="sub">AI 仿真助教 · 单文件 H5 · 零依赖</span>
+  </header>
+
+  <div class="grid">
+    <!-- 左：仿真区 -->
+    <div class="card">
+      <h2><span class="dot"></span>实验台</h2>
+      <canvas id="cv"></canvas>
+      <div class="readout">
+        <div class="it"><div class="k">滑块① 速度 v₁ (m/s)</div><div class="v" id="rv1">0.000</div></div>
+        <div class="it"><div class="k">滑块② 速度 v₂ (m/s)</div><div class="v" id="rv2">0.000</div></div>
+        <div class="it"><div class="k">系统动量 p (kg·m/s)</div><div class="v" id="rp">0.000</div></div>
+        <div class="it"><div class="k">系统动能 Ek (J)</div><div class="v" id="rk">0.000</div></div>
+      </div>
+      <div class="hint">光电门 A 测 v₁(前)/v₁(后)，光电门 B 测 v₂(后)。挡光片宽 d=2.0 cm。</div>
+    </div>
+
+    <!-- 右：控制区 -->
+    <div class="card">
+      <h2><span class="dot" style="background:var(--teal)"></span>参数控制</h2>
+      <div class="ctrl">
+        <label>滑块① 质量 m₁ <b id="lm1">0.200 kg</b></label>
+        <input type="range" id="m1" min="0.10" max="1.00" step="0.05" value="0.20">
+      </div>
+      <div class="ctrl">
+        <label>滑块② 质量 m₂ <b id="lm2">0.200 kg</b></label>
+        <input type="range" id="m2" min="0.10" max="1.00" step="0.05" value="0.20">
+      </div>
+      <div class="ctrl">
+        <label>初速度 v₁ (滑块②静止) <b id="lv1">0.300 m/s</b></label>
+        <input type="range" id="iv1" min="0.10" max="0.60" step="0.01" value="0.30">
+      </div>
+      <div class="ctrl">
+        <label>碰撞类型（恢复系数 e）</label>
+        <div class="seg" id="seg">
+          <button data-e="1.0" class="on">弹性 e=1</button>
+          <button data-e="0.5">非弹性 e=0.5</button>
+          <button data-e="0.0">完全非弹性 e=0</button>
+        </div>
+      </div>
+      <div class="btns">
+        <button class="primary" id="btnRun">释放滑块</button>
+        <button id="btnReset">复位</button>
+      </div>
+      <div class="readout" style="grid-template-columns:1fr 1fr">
+        <div class="it"><div class="k">恢复系数 e</div><div class="v" id="re">1.00</div></div>
+        <div class="it"><div class="k">已记录组数</div><div class="v" id="rcnt">0</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 数据记录表 -->
+  <div class="card" style="margin-top:16px">
+    <h2><span class="dot" style="background:var(--coral)"></span>实验数据记录与验证</h2>
+    <table id="tbl">
+      <thead><tr>
+        <th>#</th><th>m₁</th><th>m₂</th><th>v₁前</th><th>v₁后</th><th>v₂后</th>
+        <th>p前</th><th>p后</th><th>Δp%</th><th>Ek损失%</th><th class="note">碰撞类型</th>
+      </tr></thead>
+      <tbody id="tbody"><tr><td colspan="11" class="empty">尚未记录数据 — 释放滑块完成一次碰撞后将自动填入</td></tr></tbody>
+    </table>
+    <div class="btns" style="max-width:240px">
+      <button id="btnDiag">AI 误差诊断</button>
+      <button id="btnClear">清空记录</button>
+    </div>
+  </div>
+
+  <!-- AI 助教 -->
+  <div class="card ai">
+    <h2><span class="dot" style="background:var(--amber)"></span>AI 助教（本地规则引擎）</h2>
+    <div class="tabs" id="tabs">
+      <button data-p="guide" class="on">实时引导</button>
+      <button data-p="quiz">答辩评估</button>
+      <button data-p="diag">误差诊断</button>
+    </div>
+
+    <!-- 实时引导 -->
+    <div class="panel on" id="p_guide">
+      <div class="log" id="guideLog"></div>
+      <div class="hint">助教会根据当前实验状态主动给出观察建议与物理要点。</div>
+    </div>
+
+    <!-- 答辩评估 -->
+    <div class="panel" id="p_quiz">
+      <div class="qcard" id="qcard"></div>
+      <div class="chat" id="chat"></div>
+      <div class="inbox">
+        <input id="chatIn" placeholder="输入回答或提问，回车发送">
+        <button id="chatSend">发送</button>
+      </div>
+      <div class="score">本轮得分：<b id="score">0</b> / 100　·　已答：<b id="answered">0</b> 题</div>
+    </div>
+
+    <!-- 误差诊断 -->
+    <div class="panel" id="p_diag">
+      <div class="diag" id="diagOut">
+        <div class="empty">点击上方「AI 误差诊断」或先记录至少 1 组实验数据。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ====================== 物理引擎 ====================== */
+const G = {
+  // 物理参数（SI 单位）
+  trackLen: 1.60,         // 导轨长度 m
+  gateA: 0.35,            // 光电门A 位置 m
+  gateB: 1.25,            // 光电门B 位置 m
+  cartLen: 0.08,          // 滑块长度 m
+  flagW: 0.02,            // 挡光片宽度 m
+  noise: 0.004,           // 测量噪声（相对）
+  // 状态
+  m1:0.20, m2:0.20, v1init:0.30, e:1.0,
+  x1:0.10, x2:0.70, v1:0, v2:0,
+  running:false, collided:false, stuck:false,
+  // 测量
+  meas:{},                // {a_before, a_after, b_after}
+  records:[]
+};
+
+// 一维碰撞解析解：已知 m1,m2,u1,u2,e，求碰后 v1,v2
+function solveCollision(m1,m2,u1,u2,e){
+  const M=m1+m2;
+  const v1=((m1-e*m2)*u1 + (1+e)*m2*u2)/M;
+  const v2=((1+e)*m1*u1 + (m2-e*m1)*u2)/M;
+  return [v1,v2];
+}
+// 动量、动能
+function momentum(){return G.m1*G.v1 + G.m2*G.v2;}
+function kinetic(){return 0.5*G.m1*G.v1*G.v1 + 0.5*G.m2*G.v2*G.v2;}
+
+/* ====================== Canvas 渲染 ====================== */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+function fitCanvas(){
+  const r=cv.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  cv.width=r.width*dpr; cv.height=r.height*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize',fitCanvas);
+
+// 物理坐标 -> 画布坐标
+function px(xM){
+  const r=cv.getBoundingClientRect();
+  const pad=40;
+  return pad + (xM/G.trackLen)*(r.width-2*pad);
+}
+function py(){const r=cv.getBoundingClientRect();return r.height*0.62;}
+
+function draw(){
+  const r=cv.getBoundingClientRect(), W=r.width, H=r.height;
+  ctx.clearRect(0,0,W,H);
+  const baseY=py();
+
+  // 导轨
+  ctx.fillStyle='#eef2f7';
+  ctx.fillRect(px(0)-10, baseY+6, px(G.trackLen)-px(0)+20, 14);
+  ctx.strokeStyle='#9aa6b5'; ctx.lineWidth=1;
+  ctx.strokeRect(px(0)-10, baseY+6, px(G.trackLen)-px(0)+20, 14);
+  // 气孔
+  ctx.fillStyle='#b9c2cf';
+  for(let i=0;i<=32;i++){
+    const xm=i*(G.trackLen/32);
+    ctx.beginPath();ctx.arc(px(xm),baseY+13,1.4,0,Math.PI*2);ctx.fill();
+  }
+  // 刻度
+  ctx.fillStyle='#8a94a6'; ctx.font='10px ui-monospace,monospace'; ctx.textAlign='center';
+  for(let i=0;i<=16;i++){
+    const xm=i*0.1;
+    ctx.fillRect(px(xm),baseY+20,1,4);
+    if(i%2===0) ctx.fillText(xm.toFixed(1)+'m',px(xm),baseY+38);
+  }
+
+  // 光电门
+  drawGate(G.gateA,'A'); drawGate(G.gateB,'B');
+
+  // 滑块
+  drawCart(G.x1, G.v1, '#185fa5','#e6f1fb','①');
+  drawCart(G.x2, G.v2, '#0f6e56','#e1f5ee','②');
+
+  // 状态文字
+  ctx.fillStyle='#5b6675'; ctx.font='12px sans-serif'; ctx.textAlign='left';
+  let st='就绪';
+  if(G.running) st=G.collided?'碰撞后运动中…':'滑块①运动中…';
+  else if(G.collided) st='本组已完成';
+  ctx.fillText('状态：'+st, 12, 18);
+}
+function drawGate(xm,label){
+  const x=px(xm), y=py();
+  ctx.strokeStyle='#854f0b'; ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(x,y-6); ctx.lineTo(x,y-34);
+  ctx.lineTo(x+14,y-34); ctx.lineTo(x+14,y-6);
+  ctx.stroke();
+  ctx.fillStyle='#854f0b'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(label,x+7,y-40);
+}
+function drawCart(xM,v,stroke,fill,label){
+  const x=px(xM), y=py(), w=px(G.cartLen)-px(0);
+  const h=22;
+  // 车体
+  ctx.fillStyle=fill; ctx.strokeStyle=stroke; ctx.lineWidth=1.5;
+  roundRect(x,y-h,w,h,4); ctx.fill(); ctx.stroke();
+  // 挡光片（车顶中央细条）
+  const fx=px(xM+G.cartLen/2-G.flagW/2);
+  ctx.fillStyle=stroke;
+  ctx.fillRect(fx,y-h-8,px(G.flagW)-px(0),8);
+  // 标签
+  ctx.fillStyle=stroke; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(label,x+w/2,y-h/2+4);
+  // 速度矢量
+  if(Math.abs(v)>1e-4){
+    const len=Math.min(70, Math.abs(v)*180);
+    const dir=v>0?1:-1;
+    const ax=x+w/2, ay=y-h-22;
+    ctx.strokeStyle=stroke; ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(ax+dir*len,ay);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(ax+dir*len,ay);
+    ctx.lineTo(ax+dir*(len-6),ay-4);ctx.lineTo(ax+dir*(len-6),ay+4);ctx.closePath();ctx.fill();
+    ctx.fillStyle=stroke;ctx.font='10px ui-monospace,monospace';ctx.textAlign=dir>0?'left':'right';
+    ctx.fillText(v.toFixed(3),ax+dir*(len+4),ay+3);
+  }
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+
+/* ====================== 动画循环与碰撞 ====================== */
+let lastT=0;
+function loop(t){
+  if(!G.running){return;}
+  if(!lastT)lastT=t;
+  const dt=Math.min(0.03,(t-lastT)/1000);
+  lastT=t;
+  step(dt);
+  draw();
+  updateReadout();
+  if(G.running)requestAnimationFrame(loop);
+}
+
+function step(dt){
+  // 移动
+  G.x1 += G.v1*dt;
+  G.x2 += G.v2*dt;
+  // 光电门测量（挡光片中心穿越门时触发）
+  checkGates();
+  // 碰撞检测：车①右缘 接触 车②左缘
+  if(!G.collided){
+    const right1=G.x1+G.cartLen, left2=G.x2;
+    if(right1>=left2 && G.v1>G.v2){
+      const [v1n,v2n]=solveCollision(G.m1,G.m2,G.v1,G.v2,G.e);
+      G.v1=v1n; G.v2=v2n;
+      G.collided=true;
+      onCollide();
+    }
+  } else if(G.e===0 && !G.stuck){
+    // 完全非弹性：保持粘合（速度已相同，位置贴随）
+    G.stuck=true;
+  }
+  if(G.e===0 && G.collided){
+    // 粘合：车①紧贴车②
+    G.x1=G.x2-G.cartLen;
+  }
+  // 边界停止条件
+  const off = G.x2+G.cartLen > G.trackLen || G.x1 < 0;
+  if(off || (G.collided && Math.abs(G.v1)<1e-4 && Math.abs(G.v2)<1e-4)){
+    finishRun();
+  }
+  // 两车都远离/静止则结束
+  if(G.collided && G.v1<=0 && G.v2<=0 && Math.abs(G.v1)<1e-4 && Math.abs(G.v2)<1e-4){
+    finishRun();
+  }
+}
+
+// 光电门穿越测量
+const gateState={}; // key: cartId+'_'+gate -> 上次 flagCenter 相对 gate 的符号
+function flagCenter(cartId){
+  const x = cartId===1?G.x1:G.x2;
+  return x + G.cartLen/2;
+}
+function checkGates(){
+  // 车①过门 A（碰撞前向右）/ 碰后向左；车②过门 B（碰后向右）
+  measureCross(1,'A',G.gateA);
+  measureCross(2,'B',G.gateB);
+}
+function measureCross(cid,gate,gx){
+  const fc=flagCenter(cid);
+  const sign=fc>gx?1:-1;
+  const key=cid+'_'+gate;
+  const prev=gateState[key];
+  if(prev!==undefined && prev!==sign){
+    // 穿越
+    const v = cid===1?G.v1:G.v2;
+    if(Math.abs(v)>1e-4){
+      const t=G.flagW/Math.abs(v);              // 理论挡光时间
+      const tn=t*(1+(Math.random()-0.5)*2*G.noise); // 加噪声
+      const vm=G.flagW/tn*Math.sign(v);         // 测得速度
+      storeMeas(cid,gate,vm);
+    }
+  }
+  gateState[key]=sign;
+}
+function storeMeas(cid,gate,vm){
+  if(cid===1 && gate==='A'){
+    if(!G.collided) G.meas.a_before=vm; else if(G.meas.a_after===undefined) G.meas.a_after=vm;
+  }
+  if(cid===2 && gate==='B'){
+    if(G.collided && G.meas.b_after===undefined) G.meas.b_after=vm;
+  }
+}
+
+function onCollide(){
+  const p0=G.m1*G.meas.a_before;
+  const rel=Math.abs(p0)>1e-6?1:0;
+  pushGuide('ai','碰撞发生！请观察：动量在碰撞前后是否守恒？'+(G.e===1?'弹性碰撞动能也应守恒。':G.e===0?'完全非弹性碰撞动能损失最大，两车共速。':'非弹性碰撞动能部分损失。'));
+  pushGuide('ai','物理要点：v₁′、v₂′ 由 m₁v₁=(恢复系数 e) 决定，e=（v₂′−v₁′)/(v₁−v₂)。');
+}
+
+/* ====================== 控制与流程 ====================== */
+const el={
+  m1:document.getElementById('m1'),m2:document.getElementById('m2'),iv1:document.getElementById('iv1'),
+  lm1:document.getElementById('lm1'),lm2:document.getElementById('lm2'),lv1:document.getElementById('lv1'),
+  re:document.getElementById('re'),rcnt:document.getElementById('rcnt'),
+  seg:document.getElementById('seg'),btnRun:document.getElementById('btnRun'),btnReset:document.getElementById('btnReset'),
+  rv1:document.getElementById('rv1'),rv2:document.getElementById('rv2'),rp:document.getElementById('rp'),rk:document.getElementById('rk'),
+  btnDiag:document.getElementById('btnDiag'),btnClear:document.getElementById('btnClear'),
+};
+el.m1.oninput=()=>{G.m1=+el.m1.value;el.lm1.textContent=G.m1.toFixed(3)+' kg';};
+el.m2.oninput=()=>{G.m2=+el.m2.value;el.lm2.textContent=G.m2.toFixed(3)+' kg';};
+el.iv1.oninput=()=>{G.v1init=+el.iv1.value;el.lv1.textContent=G.v1init.toFixed(3)+' m/s';};
+el.m1.oninput();el.m2.oninput();el.iv1.oninput();
+el.seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  el.seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); G.e=+b.dataset.e; el.re.textContent=G.e.toFixed(2);
+});
+el.btnRun.onclick=startRun;
+el.btnReset.onclick=resetAll;
+el.btnClear.onclick=()=>{G.records=[];el.rcnt.textContent='0';renderTable();pushGuide('sys','已清空数据记录。');};
+
+function startRun(){
+  if(G.running)return;
+  resetRun(true);
+  G.v1=G.v1init; G.v2=0;
+  G.running=true; G.collided=false; G.stuck=false;
+  G.meas={};
+  for(const k in gateState)delete gateState[k];
+  lastT=0;
+  el.btnRun.disabled=true;
+  pushGuide('sys','实验开始：滑块①以 '+G.v1init.toFixed(3)+' m/s 释放，滑块②静止。');
+  pushGuide('ai','提示：质量相等 + 弹性碰撞时两滑块速度交换，是最易验证动量守恒的情形。');
+  requestAnimationFrame(loop);
+}
+function resetRun(keepParams){
+  G.x1=0.10; G.x2=0.70; G.v1=0; G.v2=0;
+  G.running=false; G.collided=false; G.stuck=false; G.meas={};
+  for(const k in gateState)delete gateState[k];
+  el.btnRun.disabled=false;
+  draw();updateReadout();
+}
+function resetAll(){resetRun();pushGuide('sys','已复位至初始状态。');}
+
+function finishRun(){
+  G.running=false; el.btnRun.disabled=false;
+  // 记录
+  const m=G.meas;
+  const v1b=m.a_before ?? 0, v1a=m.a_after ?? 0, v2a=m.b_after ?? 0;
+  const pBefore=G.m1*v1b;
+  const pAfter=G.m1*v1a + G.m2*v2a;
+  const ekBefore=0.5*G.m1*v1b*v1b;
+  const ekAfter=0.5*G.m1*v1a*v1a + 0.5*G.m2*v2a*v2a;
+  const dp = Math.abs(pBefore)>1e-6 ? (pAfter-pBefore)/pBefore*100 : 0;
+  const ekLoss = ekBefore>1e-6 ? (1-ekAfter/ekBefore)*100 : 0;
+  const row={
+    m1:G.m1,m2:G.m2,v1b,v1a,v2a,pBefore,pAfter,dp,ekLoss,e:G.e,
+    type: G.e===1?'弹性':G.e===0?'完全非弹性':'非弹性(e=0.5)'
+  };
+  G.records.push(row); el.rcnt.textContent=G.records.length;
+  renderTable();
+  // 引导点评
+  pushGuide('ai',summarizeRun(row));
+}
+
+function summarizeRun(r){
+  const ok=Math.abs(r.dp)<1.0;
+  let s='本组记录：动量相对偏差 Δp='+r.dp.toFixed(2)+'%，'+(ok?'动量守恒得到良好验证 ✓':'注意偏差偏大。');
+  if(r.e===1){
+    s+=' 弹性碰撞动能损失 '+r.ekLoss.toFixed(2)+'%（应≈0）。';
+    if(Math.abs(r.m1-r.m2)<1e-3) s+=' 质量相等，速度互换：v₁后≈'+r.v1a.toFixed(3)+'，v₂后≈'+r.v2a.toFixed(3)+'。';
+  } else if(r.e===0){
+    s+=' 完全非弹性碰撞，动能损失 '+r.ekLoss.toFixed(2)+'%（理论最大）。';
+  } else {
+    s+=' 非弹性碰撞动能损失 '+r.ekLoss.toFixed(2)+'%。';
+  }
+  return s;
+}
+
+function renderTable(){
+  const tb=document.getElementById('tbody');
+  if(!G.records.length){tb.innerHTML='<tr><td colspan="11" class="empty">尚未记录数据 — 释放滑块完成一次碰撞后将自动填入</td></tr>';return;}
+  tb.innerHTML=G.records.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td><td>${r.m1.toFixed(2)}</td><td>${r.m2.toFixed(2)}</td>
+      <td>${r.v1b.toFixed(3)}</td><td>${r.v1a.toFixed(3)}</td><td>${r.v2a.toFixed(3)}</td>
+      <td>${r.pBefore.toFixed(4)}</td><td>${r.pAfter.toFixed(4)}</td>
+      <td style="color:${Math.abs(r.dp)<1?'var(--ok)':'var(--bad)'}">${r.dp.toFixed(2)}</td>
+      <td>${r.ekLoss.toFixed(2)}</td>
+      <td class="note">${r.type}</td>
+    </tr>`).join('');
+}
+
+function updateReadout(){
+  el.rv1.textContent=G.v1.toFixed(3);
+  el.rv2.textContent=G.v2.toFixed(3);
+  el.rp.textContent=momentum().toFixed(4);
+  el.rk.textContent=kinetic().toFixed(4);
+}
+
+/* ====================== AI 助教：实时引导 ====================== */
+const guideLog=document.getElementById('guideLog');
+function pushGuide(type,text){
+  const d=document.createElement('div');
+  d.className='m '+(type==='ai'?'ai':type==='sys'?'sys':'');
+  const who=type==='ai'?'AI 助教':type==='sys'?'系统':'';
+  d.innerHTML='<div class="who">'+who+'</div>'+text;
+  guideLog.appendChild(d);
+  guideLog.scrollTop=guideLog.scrollHeight;
+}
+pushGuide('ai','你好！我是本次实验的 AI 助教。先调节左侧质量与初速度，选择碰撞类型，点击「释放滑块」即可开始。我会全程引导你理解动量守恒。');
+
+/* ====================== AI 助教：答辩评估 ====================== */
+// 题库：每题含问题、期望关键词、解析
+const QUIZ=[
+  {q:'动量守恒定律成立的条件是什么？',
+   keys:['系统','不受外力','合外力','为零','外力'],
+   ans:'当系统所受合外力为零（或不受外力）时，系统总动量守恒。气垫导轨通过气垫极大减小摩擦，使两滑块系统在水平方向合外力近似为零，从而验证动量守恒。'},
+  {q:'恢复系数 e 的定义是什么？e=1、0<e<1、e=0 分别对应什么碰撞？',
+   keys:['相对速度','分离','接近','比','e=1','弹性','完全非弹性','e=0'],
+   ans:'e = (碰后相对分离速度)/(碰前相对接近速度) = (v₂′−v₁′)/(v₁−v₂)。e=1 为弹性碰撞（动能守恒）；0<e<1 为非弹性碰撞；e=0 为完全非弹性碰撞（两物粘合共速，动能损失最大）。'},
+  {q:'为什么弹性碰撞中质量相等的两滑块会速度交换？',
+   keys:['动量守恒','动能守恒','方程','联立','m₁=m₂'],
+   ans:'弹性碰撞同时满足动量守恒和动能守恒。当 m₁=m₂ 时，联立两方程解得 v₁′=v₂，v₂′=v₁，即两滑块速度交换。这是动量与能量同时守恒的直接结果。'},
+  {q:'完全非弹性碰撞中动能损失去向是哪里？为什么损失最大？',
+   keys:['内能','形变','热','粘合','共速','相对速度','为零'],
+   ans:'动能转化为内能（形变、热）。完全非弹性碰撞后两物粘合共速，相对速度为零，由 e=0 代入动能损失公式 ΔEk = ½·(m₁m₂/(m₁+m₂))·(v₁−v₂)²，此时损失达到该初动能下的最大值。'},
+  {q:'本实验为什么用挡光片和光电门测速而不是直接读速度？',
+   keys:['挡光','时间','宽度','v=d/t','光电门','测量'],
+   ans:'光电门测量挡光片通过的时间 Δt，已知挡光片宽度 d，由 v=d/Δt 得到瞬时速度。这是实验中可实际测量的物理量，而非直接“读”出速度，体现了真实测量原理。'}
+];
+let quizIdx=0, quizScore=0, quizAnswered=0;
+const chatEl=document.getElementById('chat'), qcard=document.getElementById('qcard'),
+      chatIn=document.getElementById('chatIn'), chatSend=document.getElementById('chatSend');
+function showQuiz(){
+  if(quizIdx>=QUIZ.length){
+    qcard.innerHTML='<div class="q">已完成全部题目</div>本轮答辩结束，可切换其他标签或继续实验。';
+    return;
+  }
+  const Q=QUIZ[quizIdx];
+  qcard.innerHTML='<div class="q">问题 '+(quizIdx+1)+'/'+QUIZ.length+'</div>'+Q.q;
+}
+function pushChat(who,text){
+  const d=document.createElement('div');
+  d.className='b '+(who==='me'?'me':'ai');
+  d.innerHTML='<div class="who">'+(who==='me'?'你':'AI 助教')+'</div><div class="txt">'+text+'</div>';
+  chatEl.appendChild(d); chatEl.scrollTop=chatEl.scrollHeight;
+}
+function handleAnswer(){
+  const txt=chatIn.value.trim();
+  if(!txt)return; chatIn.value='';
+  pushChat('me',txt);
+  // 判断是回答当前题，还是自由提问
+  if(quizIdx<QUIZ.length){
+    const Q=QUIZ[quizIdx];
+    const hits=Q.keys.filter(k=>txt.includes(k)).length;
+    const ratio=hits/Math.max(3,Q.keys.length);
+    let pts=Math.round(ratio*100), fb='';
+    if(ratio>=0.6){fb='回答较好，抓住了关键点。';pts=Math.max(60,pts);}
+    else if(ratio>0){fb='部分正确，但要点不全。';}
+    else {fb='未命中关键概念，请参考解析。';pts=0;}
+    quizScore+=pts; quizAnswered++;
+    document.getElementById('score').textContent=quizScore;
+    document.getElementById('answered').textContent=quizAnswered;
+    pushChat('ai',fb+' 得分 +'+pts+'。解析：'+Q.ans);
+    quizIdx++; showQuiz();
+  } else {
+    // 自由提问 -> 概念匹配
+    pushChat('ai', conceptAnswer(txt));
+  }
+}
+chatSend.onclick=handleAnswer;
+chatIn.onkeydown=e=>{if(e.key==='Enter')handleAnswer();};
+showQuiz();
+pushChat('ai','答辩开始！左侧题目框为当前问题，在下方输入你的回答（包含关键物理概念即可得分），回车发送。');
+
+// 概念库（用于自由提问匹配）
+const CONCEPTS=[
+  {keys:['动量守恒','条件'],ans:'动量守恒条件：系统所受合外力为零。气垫导轨近似满足此条件。'},
+  {keys:['恢复系数','e'],ans:'恢复系数 e=(v₂′−v₁′)/(v₁−v₂)，取值 0~1，衡量碰撞弹性程度。'},
+  {keys:['弹性碰撞','动能'],ans:'弹性碰撞 e=1，动量与动能同时守恒。'},
+  {keys:['完全非弹性','粘合'],ans:'完全非弹性碰撞 e=0，碰后共速，动能损失最大。'},
+  {keys:['挡光片','光电门','测速'],ans:'光电门测挡光时间 Δt，由 v=d/Δt 求速度。'},
+  {keys:['速度交换','质量相等'],ans:'弹性碰撞中 m₁=m₂ 时 v₁′=v₂、v₂′=v₁，速度互换。'},
+  {keys:['误差','来源'],ans:'主要误差源：挡光片宽度、光电门计时精度、滑块质量、残余摩擦。'}
+];
+function conceptAnswer(txt){
+  for(const c of CONCEPTS){if(c.keys.some(k=>txt.includes(k)))return c.ans;}
+  return '这是一个好问题。本实验围绕动量守恒 p=m₁v₁+m₂v₂、恢复系数 e 与动能变化展开，可尝试调整质量比与碰撞类型观察规律。';
+}
+
+/* ====================== AI 助教：误差诊断 ====================== */
+el.btnDiag.onclick=()=>{switchTab('diag');runDiag();};
+function runDiag(){
+  const out=document.getElementById('diagOut');
+  if(G.records.length<1){
+    out.innerHTML='<div class="empty">请先完成至少 1 组实验并记录数据。</div>';return;
+  }
+  const dps=G.records.map(r=>Math.abs(r.dp));
+  const mean=dp=>dp.reduce((a,b)=>a+b,0)/dp.length;
+  const avg=mean(dps), mx=Math.max(...dps);
+  // 诊断规则
+  const items=[];
+  if(avg<0.5) items.push('系统平均动量偏差仅 '+avg.toFixed(2)+'%，动量守恒验证优秀，气垫导轨低摩擦条件满足良好。');
+  else if(avg<2) items.push('系统平均动量偏差 '+avg.toFixed(2)+'%，在可接受范围内，主要来自挡光片计时精度。');
+  else items.push('系统平均动量偏差 '+avg.toFixed(2)+'% 偏大，建议排查：滑块是否受残余摩擦、初速度是否过小导致相对误差放大。');
+  if(mx>3) items.push('单组最大偏差 '+mx.toFixed(2)+'%，疑似该组测量异常（挡光片未正对光电门或读数跳变），建议重做。');
+  // 弹性组动能检验
+  const elas=G.records.filter(r=>r.e===1);
+  if(elas.length){
+    const ekAvg=mean(elas.map(r=>Math.abs(r.ekLoss)));
+    items.push('弹性碰撞组平均动能损失 '+ekAvg.toFixed(2)+'%（理论为 0），反映计时噪声与数值离散程度。');
+  }
+  const inelas=G.records.filter(r=>r.e===0);
+  if(inelas.length){
+    items.push('完全非弹性组共 '+inelas.length+' 次，动能损失显著，符合 e=0 时能量大量转内能的理论预期。');
+  }
+  items.push('改进建议：①多次测量取平均；②挡光片宽度 d 用游标卡尺标定；③保证滑块匀速过门、初速度适中（0.3~0.5 m/s）。');
+  out.innerHTML='<div class="h">误差诊断报告（基于 '+G.records.length+' 组数据）</div>'+
+    '<div class="li">平均 |Δp|：<span class="big">'+avg.toFixed(2)+'%</span></div>'+
+    items.map(x=>'<div class="li">'+x+'</div>').join('');
+}
+
+/* ====================== Tab 切换 ====================== */
+document.getElementById('tabs').querySelectorAll('button').forEach(b=>{
+  b.onclick=()=>{
+    document.getElementById('tabs').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    switchTab(b.dataset.p);
+  };
+});
+function switchTab(p){
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+  document.getElementById('p_'+p).classList.add('on');
+}
+
+/* ====================== 启动 ====================== */
+fitCanvas(); draw(); updateReadout();
+</script>
+</body>
+</html>
